@@ -1,5 +1,6 @@
 streamlit==1.27.0
-requests
-Pillow
-google-generativeai
-python-dotenv
+requests==2.31.0
+Pillow==9.5.0
+google-generativeai==0.3.1
+python-dotenv==1.0.0
+notion-client==2.0.0
