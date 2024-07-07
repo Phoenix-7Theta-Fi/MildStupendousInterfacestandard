@@ -1,19 +1,13 @@
 import streamlit as st
 import requests
-import base64
 import google.generativeai as genai
 from PIL import Image
 import io
-import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Configuration
-NOTION_API_KEY = os.getenv("NOTION_API_KEY")
-NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+NOTION_API_KEY = st.secrets["NOTION_API_KEY"]
+NOTION_DATABASE_ID = st.secrets["NOTION_DATABASE_ID"]
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 
 # Configure Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
@@ -32,7 +26,7 @@ def process_content(content, image=None):
     return response.text
 
 def update_notion(content):
-    url = f"https://api.notion.com/v1/pages"
+    url = "https://api.notion.com/v1/pages"
     headers = {
         "Authorization": f"Bearer {NOTION_API_KEY}",
         "Content-Type": "application/json",
@@ -54,7 +48,7 @@ def update_notion(content):
                 "rich_text": [
                     {
                         "text": {
-                            "content": content
+                            "content": content[:2000]  # Notion has a 2000 character limit for rich_text
                         }
                     }
                 ]
@@ -62,6 +56,9 @@ def update_notion(content):
         }
     }
     response = requests.post(url, headers=headers, json=data)
+    if response.status_code != 200:
+        st.error(f"Failed to update Notion. Status code: {response.status_code}")
+        st.error(f"Error message: {response.text}")
     return response.status_code == 200
 
 def main():
@@ -95,15 +92,18 @@ def main():
                 content += "Processing captured image...\n"
 
             if content or image:
-                # Process the content using Gemini API
-                processed_content = process_content(content, image)
-                st.write("Processed content:", processed_content)
+                try:
+                    # Process the content using Gemini API
+                    processed_content = process_content(content, image)
+                    st.write("Processed content:", processed_content)
 
-                # Update Notion
-                if update_notion(processed_content):
-                    st.success("Successfully updated Notion!")
-                else:
-                    st.error("Failed to update Notion. Please check your API key and database ID.")
+                    # Update Notion
+                    if update_notion(processed_content):
+                        st.success("Successfully updated Notion!")
+                    else:
+                        st.error("Failed to update Notion. Please check the error messages above.")
+                except Exception as e:
+                    st.error(f"An error occurred: {str(e)}")
             else:
                 st.warning("Please enter some text or upload/capture an image before processing.")
 
