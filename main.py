@@ -1,8 +1,8 @@
 import streamlit as st
-import requests
 import google.generativeai as genai
 from PIL import Image
 import io
+from st_notion_connection import NotionConnection
 
 # Configuration
 NOTION_API_KEY = st.secrets["NOTION_API_KEY"]
@@ -11,6 +11,9 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 
 # Configure Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
+
+# Initialize Notion connection
+notion = NotionConnection(api_key=NOTION_API_KEY)
 
 def process_content(content, image=None):
     model = genai.GenerativeModel('gemini-1.5-pro')
@@ -26,40 +29,34 @@ def process_content(content, image=None):
     return response.text
 
 def update_notion(content):
-    url = "https://api.notion.com/v1/pages"
-    headers = {
-        "Authorization": f"Bearer {NOTION_API_KEY}",
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28"
-    }
-    data = {
-        "parent": {"database_id": NOTION_DATABASE_ID},
-        "properties": {
-            "Name": {
-                "title": [
-                    {
-                        "text": {
-                            "content": "New Note"
+    try:
+        notion.create_page_in_database(
+            database_id=NOTION_DATABASE_ID,
+            properties={
+                "Name": {
+                    "title": [
+                        {
+                            "text": {
+                                "content": "New Note"
+                            }
                         }
-                    }
-                ]
-            },
-            "Content": {
-                "rich_text": [
-                    {
-                        "text": {
-                            "content": content[:2000]  # Notion has a 2000 character limit for rich_text
+                    ]
+                },
+                "Content": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": content[:2000]  # Notion has a 2000 character limit for rich_text
+                            }
                         }
-                    }
-                ]
+                    ]
+                }
             }
-        }
-    }
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code != 200:
-        st.error(f"Failed to update Notion. Status code: {response.status_code}")
-        st.error(f"Error message: {response.text}")
-    return response.status_code == 200
+        )
+        return True
+    except Exception as e:
+        st.error(f"Failed to update Notion. Error: {str(e)}")
+        return False
 
 def main():
     st.title("AI Notes to Notion App")
